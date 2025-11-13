@@ -17,7 +17,7 @@ void submit_task(task_t *t);
 void free_task(task_t* t);
 
 void task_waitall(void);
-
+void *work_thread( void *arg );
 
 /* Functions for managing the inputs and outputs of tasks */
 

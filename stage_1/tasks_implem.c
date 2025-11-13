@@ -9,9 +9,9 @@
 
 tasks_queue_t *tqueue= NULL;
 
+extern int nbElts ;
 
-void create_queues(void)
-{
+void create_queues( void ) {
     tqueue = create_tasks_queue();
 }
 
@@ -20,23 +20,16 @@ void delete_queues(void)
     free_tasks_queue(tqueue);
 }    
 
-void *ptr_task_waitall( void *arg ){
-    task_waitall() ;
-    
-    return NULL ;
-}
-
 void create_thread_pool(void){
-    int nb_threads = 0 ;
+    
     pthread_t *tids ;
+    int nb_threads = THREAD_COUNT ; // THREAD_COUNT IN MAKEFILE.CONFIG ;
 
-
-    nb_threads = THREAD_COUNT ; // THREAD_COUNT IN MAKEFILE.CONFIG
     tids = malloc ( nb_threads * sizeof( pthread_t ) ) ;
 
     /* Create the threads */
     for ( int i = 1 ; i <= nb_threads ; i++ ){
-        pthread_create ( &tids[i] , NULL , ptr_task_waitall , NULL ) ;
+        pthread_create ( &tids[i] , NULL , work_thread , NULL ) ;
         printf( "T%d = Created !\n", i );
     }
     

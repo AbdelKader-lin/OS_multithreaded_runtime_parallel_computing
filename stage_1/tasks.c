@@ -11,8 +11,9 @@ system_state_t sys_state;
 
 __thread task_t *active_task;
 
-//int i = 0 ;
-//pthread_mutex_t m ;
+pthread_mutex_t m ;
+
+pthread_cond_t finish ;
 
 extern pthread_cond_t notEmpty ;
 extern pthread_cond_t notFull ;
@@ -27,9 +28,7 @@ void runtime_init(void)
     rand_generator_init();
 
     create_queues();
-    //printf("Avant pool\n");
     create_thread_pool();
-    //printf("Apres pool\n");
 
     sys_state.task_counter = 0;    
 }
@@ -108,31 +107,41 @@ void submit_task(task_t *t)
 }
 
 void task_waitall(void) {
-    task_t* active_tk = get_task_to_execute();
-    printf("OK !\n");
+    pthread_mutex_lock( &m ) ;
+    while ( nbElts != 0 ){ // We wait till the thread finish the exec
+        pthread_cond_wait( &finish , &m ) ; 
+    }
+    pthread_mutex_unlock( &m ) ;
+}
 
-    while(active_tk != NULL){
-        //i++ ;
-        //printf("\ni = %d\n",i);
-        //printf("Avant exec !\n");
-        task_return_value_t ret = exec_task(active_tk);
-	    //printf("Apres exec !\n");
-        if (ret == TASK_COMPLETED){
+void *work_thread( void *arg ){
+
+    // Thead recupere a task
+    if ( nbElts == 0 ){
+        pthread_cond_broadcast( &finish );
+        return NULL ;
+    }
+    task_t* active_tk = get_task_to_execute();
+    
+
+    while ( active_tk != NULL ){ // Buffer not empty
+        task_return_value_t ret = exec_task(active_tk); // We execute the task
+        if (ret == TASK_COMPLETED){ // Task execution over
             terminate_task(active_tk);
-	    //printf("Apres Task terminated !\n");
         }
 #ifdef WITH_DEPENDENCIES
         else{
             active_tk->status = WAITING;
         }
 #endif
-	    //printf("Juste avant next elt!\n");
-        if ( nbElts != 0 ){
-            active_tk = get_task_to_execute();
-        } else {
-            break;
+        // Thread recupere a task
+        if ( nbElts == 0 ){
+            pthread_cond_broadcast( &finish );
+            return NULL ;
         }
-        
-	    //printf("OK !\n");
+        active_tk = get_task_to_execute();
     }
+    pthread_cond_broadcast( &finish );
+    return NULL ;
 }
+
