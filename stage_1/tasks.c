@@ -11,7 +11,7 @@ system_state_t sys_state;
 
 __thread task_t *active_task;
 
-pthread_mutex_t m ;
+pthread_mutex_t mtx_main_thread ;
 
 pthread_cond_t finish ;
 
@@ -114,21 +114,23 @@ void submit_task(task_t *t)
     dispatch_task(t);
 }
 
+
+/*
+The following function will be called by the main thread. 
+The main thread will then get blocked and wait for children
+to finish their execution.
+*/
 void task_waitall( void ) {
-    pthread_mutex_lock( &mtx_size ) ;
+    pthread_mutex_lock( &mtx_main_thread ) ;
     while ( nbTasks != 0 ){ // We wait till the thread finish the exec
-        pthread_cond_wait( &finish , &mtx_size ) ; 
+        pthread_cond_wait( &finish , &mtx_main_thread ) ; 
     }
-    pthread_mutex_unlock( &mtx_size ) ;
+    pthread_mutex_unlock( &mtx_main_thread ) ;
 }
 
 void *work_thread( void *arg ){
 
     // Thread recupere a task
-    /*if ( nbTasks == 0 ){
-        pthread_cond_broadcast( &finish );
-        return NULL ;
-    }*/
     task_t* active_tk = get_task_to_execute();
     
 
@@ -143,14 +145,8 @@ void *work_thread( void *arg ){
     }
 #endif
         // Thread recupere a task
-        /*if ( nbTasks == 0 ){
-            break ;
-        }*/
         active_tk = get_task_to_execute();
     }
-
-    // pthread_cond_broadcast( &finish );
-    
 
     return NULL ;
 }

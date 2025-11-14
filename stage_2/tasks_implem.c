@@ -13,7 +13,7 @@ extern int nbTasks ;
 
 extern pthread_mutex_t mtx ;
 pthread_mutex_t mtx_size ;
-extern pthread_mutex_t m ;
+//extern pthread_mutex_t m ;
 
 extern pthread_cond_t finish ;
 extern pthread_cond_t notEmpty ;
@@ -23,10 +23,11 @@ void create_queues( void ) {
 
     tqueue = create_tasks_queue();
 
+    // We init the mutex locks
     pthread_mutex_init( &mtx , NULL );
-    pthread_mutex_init( &m , NULL );
     pthread_mutex_init( &mtx_size , NULL );
 
+    // Iniit of the conditional variables
     pthread_cond_init( &notEmpty , NULL ) ;
     pthread_cond_init( &notFull , NULL ) ;
     pthread_cond_init( &finish , NULL ) ;
@@ -84,7 +85,7 @@ void terminate_task(task_t *t)
 
     pthread_mutex_lock( &mtx_size ) ;
     nbTasks-- ;
-    if ( nbTasks == 0 ){
+    if ( nbTasks == 0 ){ // We send a signal to the main thread : You can keep going.
         pthread_cond_broadcast( &finish );
     }
     pthread_mutex_unlock( &mtx_size ) ;

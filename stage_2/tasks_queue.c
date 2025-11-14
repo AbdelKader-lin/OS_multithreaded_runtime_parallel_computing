@@ -51,7 +51,6 @@ void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
     // We add the task to the buffer
     q->task_buffer[ q->index ] = t;
     q->index++;
-    //nbTasks++ ;
     
 
     pthread_cond_broadcast( &notEmpty ) ; // Tell other threads that the buffer has at least one element now
@@ -71,7 +70,6 @@ task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     // We consume an element : A free spot is now available
     task_t *t = q->task_buffer[ q->index-1 ];
     q->index--;
-    //nbTasks-- ;
 
     pthread_cond_broadcast( &notFull ) ; // Tell everyone that the buffer is not full.
     pthread_mutex_unlock( &mtx ) ; // Give up the lock
