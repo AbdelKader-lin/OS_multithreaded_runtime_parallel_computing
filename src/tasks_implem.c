@@ -4,11 +4,14 @@
 #include "tasks_queue.h"
 #include "debug.h"
 
+#include <stdlib.h>
+#include <pthread.h>
+
 tasks_queue_t *tqueue= NULL;
 
+extern int nbElts ;
 
-void create_queues(void)
-{
+void create_queues( void ) {
     tqueue = create_tasks_queue();
 }
 
@@ -17,10 +20,22 @@ void delete_queues(void)
     free_tasks_queue(tqueue);
 }    
 
-void create_thread_pool(void)
-{
+void create_thread_pool(void){
+    
+    pthread_t *tids ;
+    int nb_threads = THREAD_COUNT ; // THREAD_COUNT IN MAKEFILE.CONFIG ;
+
+    tids = malloc ( nb_threads * sizeof( pthread_t ) ) ;
+
+    /* Create the threads */
+    for ( int i = 1 ; i <= nb_threads ; i++ ){
+        pthread_create ( &tids[i] , NULL , work_thread , NULL ) ;
+        printf( "T%d = Created !\n", i );
+    }
+    
     return ;
 }
+
 
 void dispatch_task(task_t *t)
 {

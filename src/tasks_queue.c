@@ -2,10 +2,21 @@
 #include <stdlib.h>
 
 #include "tasks_queue.h"
+#include <pthread.h>
 
 
-tasks_queue_t* create_tasks_queue(void)
-{
+int nbElts ;
+
+pthread_mutex_t mtx ;
+
+
+pthread_cond_t notEmpty ;
+pthread_cond_t notFull ;
+
+extern pthread_cond_t finish ;
+
+tasks_queue_t* create_tasks_queue(void){
+
     tasks_queue_t *q = (tasks_queue_t*) malloc(sizeof(tasks_queue_t));
 
     q->task_buf_size = QUEUE_CAPACITY;
@@ -27,27 +38,45 @@ void free_tasks_queue(tasks_queue_t *q)
 }
 
 
-void enqueue_task(tasks_queue_t *q, task_t *t)
-{
-    if(q->index == q->task_buf_size){
-        fprintf(stderr,"ERROR: the queue of tasks is full\n");
-        exit(EXIT_FAILURE);
-    }
+void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
 
-    q->task_buffer[q->index] = t;
+
+    pthread_mutex_lock( &mtx ) ; // We acquire the lock
+    while ( q->index == q->task_buf_size ){ // Buffer is full
+         pthread_cond_wait( &notFull , &mtx ) ; // We wait for a consumer to consume an element so we have a free spot
+    }
+    
+    
+    
+    // We add the task to the buffer
+    q->task_buffer[ q->index ] = t;
     q->index++;
+    nbElts++ ;
+    //atomic_fetch_add( &nbElts , 1 ) ;
+    
+
+    pthread_cond_broadcast( &notEmpty ) ; // Tell other threads that the buffer has at least one element now
+    pthread_mutex_unlock( &mtx ) ; // We give up the lock
+
 }
 
 
-task_t* dequeue_task(tasks_queue_t *q)
-{
-    if(q->index == 0){
-        return NULL;
-    }
+task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
+    
+    pthread_mutex_lock( &mtx ) ; // We acquire the lock
 
-    task_t *t = q->task_buffer[q->index-1];
+    while( q->index == 0 ){  // nb elts >= 1 ?
+        pthread_cond_wait( &notEmpty , &mtx ) ;
+    }
+    
+    // We consume an element : A free spot is now available
+    task_t *t = q->task_buffer[ q->index-1 ];
     q->index--;
+    nbElts-- ;
+    //atomic_fetch_add( &nbElts , -1 ) ;
+
+    pthread_cond_broadcast( &notFull ) ; // Tell everyone that the buffer is not full.
+    pthread_mutex_unlock( &mtx ) ; // Give up the lock
 
     return t;
 }
-

@@ -5,9 +5,22 @@
 #include "debug.h"
 #include "utils.h"
 
-system_state_t sys_state;
+#include <pthread.h>
+#include "tasks_queue.h"
 
+extern tasks_queue_t *tqueue;
+
+system_state_t sys_state;
 __thread task_t *active_task;
+
+static int pending_tasks = 0;
+
+static pthread_mutex_t pending_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t finish = PTHREAD_COND_INITIALIZER;
+
+extern pthread_cond_t notEmpty ;
+extern pthread_cond_t notFull ;
+
 
 
 void runtime_init(void)
@@ -34,13 +47,24 @@ void runtime_init_with_deps(void)
 
 
 
-void runtime_finalize(void)
-{
+void runtime_finalize(void) {
+    /*
+    The idea is that we already wait for the work to finish 
+    when we pass ptr_taask_waitall to the created thread
+    */
+
     task_waitall();
+
+
+    pthread_cond_broadcast( &notEmpty ) ;
+    pthread_cond_broadcast( &notFull ) ;
+
 
     PRINT_DEBUG(1, "Terminating ... \t Total task count: %lu \n", sys_state.task_counter);
     
     delete_queues();
+    
+
 }
 
 
@@ -80,27 +104,50 @@ void submit_task(task_t *t)
         PRINT_DEBUG(100, "Dependency %u -> %u\n", active_task->task_id, t->task_id);
     }
 #endif
-    
+
+    pthread_mutex_lock(&pending_mutex);
+    pending_tasks++;
+    pthread_mutex_unlock(&pending_mutex);
+
     dispatch_task(t);
 }
 
+void task_waitall(void) {
+    pthread_mutex_lock(&pending_mutex);
 
-void task_waitall(void)
+    while (pending_tasks > 0) {
+        pthread_cond_wait(&finish, &pending_mutex);
+    }
+
+    pthread_mutex_unlock(&pending_mutex);
+}
+
+
+
+void *work_thread(void *arg)
 {
-    active_task = get_task_to_execute();
+    while (1)
+    {
+        task_t *active_tk = get_task_to_execute();
 
-    while(active_task != NULL){
-        task_return_value_t ret = exec_task(active_task);
+        task_return_value_t ret = exec_task(active_tk);
 
-        if (ret == TASK_COMPLETED){
-            terminate_task(active_task);
+        if (ret == TASK_COMPLETED) {
+            terminate_task(active_tk);
         }
 #ifdef WITH_DEPENDENCIES
-        else{
-            active_task->status = WAITING;
+        else {
+            active_tk->status = WAITING;
         }
 #endif
 
-        active_task = get_task_to_execute();
+        pthread_mutex_lock(&pending_mutex);
+        pending_tasks--;
+        if (pending_tasks == 0) {
+            pthread_cond_broadcast(&finish);
+        }
+        pthread_mutex_unlock(&pending_mutex);
     }
+
+    return NULL;  
 }
