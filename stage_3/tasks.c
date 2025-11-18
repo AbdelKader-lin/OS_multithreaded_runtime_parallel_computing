@@ -136,12 +136,12 @@ void task_waitall( void ) {
 
 void *work_thread( void *arg ){
 
-
+    int id = *( ( int* )arg ) ; // The thread's ID
     
 
     while ( 1 ){ // Buffer not empty
         // Thread recupere a task
-        task_t* active_tk = get_task_to_execute();
+        task_t* active_tk = get_task_to_execute( id );
 
         if ( active_tk == NULL ){
             break ;

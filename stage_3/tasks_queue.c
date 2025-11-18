@@ -13,7 +13,7 @@ pthread_cond_t notEmpty ;
 
 extern pthread_cond_t finish ;
 
-tasks_queue_t* create_tasks_queue(void){
+tasks_queue_t* create_tasks_queue_stage2(void){
 
     tasks_queue_t *q = (tasks_queue_t*) malloc(sizeof(tasks_queue_t));
 
@@ -23,6 +23,23 @@ tasks_queue_t* create_tasks_queue(void){
     q->index = 0;
 
     return q;
+}
+tasks_queues_array_t* create_tasks_queue(void){
+    tasks_queues_array_t* tab = ( tasks_queues_array_t* ) malloc( sizeof( tasks_queues_array_t ) );
+
+    int nbth = THREAD_COUNT ;
+    tasks_queue_t** array_q = (tasks_queue_t** ) malloc( nbth * sizeof( tasks_queue_t* ) );
+
+    // We create the queues
+    for ( int i = 0 ; i < nbth ; i++ ){
+        *( array_q + i ) = create_tasks_queue_stage2() ;
+    }
+    tab->tab_queues = array_q ;
+    tab->in = 0 ;
+    tab->out = 0 ;
+
+
+    return tab ;
 }
 
 

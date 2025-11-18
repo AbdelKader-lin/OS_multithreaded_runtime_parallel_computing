@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-tasks_queue_t *tqueue= NULL;
+tasks_queues_array_t* tqueue = NULL;
 
 extern int nbTasks ;
 
@@ -15,6 +15,8 @@ extern pthread_mutex_t mtx ;
 pthread_mutex_t mtx_size ;
 extern pthread_mutex_t mtx_dep_count ;
 extern pthread_mutex_t m_creation ;
+pthread_mutex_t mtx_in ;
+pthread_mutex_t mtx_out ;
 
 
 extern pthread_cond_t finish ;
@@ -29,6 +31,8 @@ void create_queues( void ) {
     pthread_mutex_init( &mtx_size , NULL );
     pthread_mutex_init( &mtx_dep_count , NULL );
     pthread_mutex_init( &m_creation , NULL );
+    pthread_mutex_init( &mtx_in , NULL );
+    pthread_mutex_init( &mtx_out , NULL );
 
 
     // Iniit of the conditional variables
@@ -42,7 +46,11 @@ void create_queues( void ) {
 
 void delete_queues(void)
 {
-    free_tasks_queue(tqueue);
+    for ( int i = 0 ; i < THREAD_COUNT ; i++ ){
+        free_tasks_queue( tqueue->tab_queues[ i ] );
+    }
+    free( tqueue );
+    
 }    
 
 void create_thread_pool(void){
@@ -52,9 +60,12 @@ void create_thread_pool(void){
 
     tids = malloc ( nb_threads * sizeof( pthread_t ) ) ;
 
+    int* my_ids = malloc ( nb_threads * sizeof( int ) ) ;
+
     /* Create the threads */
     for ( int i = 1 ; i <= nb_threads ; i++ ){
-        pthread_create ( &tids[ i - 1 ] , NULL , work_thread , NULL ) ;
+        *( my_ids + i - 1 ) = i - 1 ; 
+        pthread_create ( &tids[ i - 1 ] , NULL , work_thread , &my_ids[ i - 1 ] ) ;
         printf( "T%d = Created !\n", i );
     }
     
@@ -62,14 +73,16 @@ void create_thread_pool(void){
 }
 
 
-void dispatch_task(task_t *t)
-{
-    enqueue_task(tqueue, t);
+void dispatch_task( task_t* t ) {
+    pthread_mutex_lock( &mtx_in ) ;
+    enqueue_task( tqueue->tab_queues[ tqueue->in ] , t ) ;
+    tqueue->in = ( tqueue->in + 1 ) % THREAD_COUNT ;
+    pthread_mutex_unlock( &mtx_in ) ;
 }
 
-task_t* get_task_to_execute(void)
-{
-    return dequeue_task(tqueue);
+task_t* get_task_to_execute( int id  ) { 
+    task_t* t = dequeue_task( tqueue->tab_queues[ id ] );
+    return t ;
 }
 
 unsigned int exec_task(task_t *t)
