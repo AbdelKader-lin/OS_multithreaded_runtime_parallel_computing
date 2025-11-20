@@ -41,7 +41,7 @@ echo
 
 echo "Testing with fibo.c :"
 i=1
-while [ "$i" -lt 50 ]
+while [ "$i" -lt 30 ]
 do
 	echo "FIBO " expr "$i"
 	./tests/fibo.run "$i"

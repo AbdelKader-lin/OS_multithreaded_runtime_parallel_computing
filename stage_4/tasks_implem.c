@@ -63,13 +63,10 @@ void create_thread_pool(void){
     int* my_ids = malloc ( nb_threads * sizeof( int ) ) ;
 
     /* Create the threads */
-    /*
-    In this case we will "create" a distinct integer that will serve as an id for each of the threads we will create
-    */
     for ( int i = 1 ; i <= nb_threads ; i++ ){
         *( my_ids + i - 1 ) = i - 1 ; 
         pthread_create ( &tids[ i - 1 ] , NULL , work_thread , &my_ids[ i - 1 ] ) ;
-        printf( "T%d = Created !\n", i );
+        //printf( "T%d = Created !\n", i );
     }
     
     return ;
