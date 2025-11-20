@@ -97,7 +97,7 @@ task_t* create_task(task_routine_t f)
     return t;
 }
 
-void submit_task(task_t *t)
+void submit_task( task_t *t  )
 {
     t->status = READY;
 
@@ -117,7 +117,7 @@ void submit_task(task_t *t)
     nbTasks++ ;
     pthread_mutex_unlock( &mtx_size ) ;
     
-    dispatch_task(t);
+    dispatch_task( t );
 }
 
 
@@ -144,7 +144,7 @@ void *work_thread( void *arg ){
         task_t* active_tk = get_task_to_execute( id );
 
         if ( active_tk == NULL ){
-            break ;
+            continue ;
         }
 
         //active_task = active_tk ;

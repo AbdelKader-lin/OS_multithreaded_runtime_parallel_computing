@@ -4,15 +4,16 @@
 #include "tasks_queue.h"
 #include <pthread.h>
 
-extern tasks_queues_array_t* tqueue ;
 
 int nbTasks ;
+
 
 pthread_mutex_t mtx ;
 
 pthread_cond_t notEmpty ;
 
 extern pthread_cond_t finish ;
+extern tasks_queues_array_t* tqueue  ;
 
 tasks_queue_t* create_tasks_queue_stage2(void){
 
@@ -22,23 +23,28 @@ tasks_queue_t* create_tasks_queue_stage2(void){
     q->task_buffer = (task_t**) malloc(sizeof(task_t*) * q->task_buf_size);
 
     q->index = 0;
-    q->steal_idx = -1 ; // No elements yet in the
 
     return q;
 }
-tasks_queues_array_t* create_tasks_queue(void){ // This will create the array of queues
+tasks_queues_array_t* create_tasks_queue(void){
     tasks_queues_array_t* tab = ( tasks_queues_array_t* ) malloc( sizeof( tasks_queues_array_t ) );
 
     int nbth = THREAD_COUNT ;
     tasks_queue_t** array_q = (tasks_queue_t** ) malloc( nbth * sizeof( tasks_queue_t* ) );
 
+    pthread_mutex_t* locks_a = malloc( nbth * sizeof( pthread_mutex_t ) );
+
     // We create the queues
     for ( int i = 0 ; i < nbth ; i++ ){
         *( array_q + i ) = create_tasks_queue_stage2() ;
+        array_q[ i ]->id = i ;
+        array_q[ i ]->steal_idx = -1 ;
+        pthread_mutex_init( ( locks_a + i ) , NULL ); ;
     }
     tab->tab_queues = array_q ;
+    tab->locks_array = locks_a ;
     tab->in = 0 ;
-    //tab->out = 0 ;
+    tab->out = 0 ;
 
 
     return tab ;
@@ -57,8 +63,9 @@ void free_tasks_queue(tasks_queue_t *q)
 
 void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
 
+    int id = q->id ;
 
-    pthread_mutex_lock( &mtx ) ;
+    pthread_mutex_lock( &tqueue->locks_array[ id ]  ) ;
 
     if ( q->index == q->task_buf_size ){ // Buffer is full
         // We resize the buffer : 16 new free spots.
@@ -76,43 +83,53 @@ void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
     q->task_buffer[ q->index ] = t;
     q->index++;
     
-    // Stage 4
-    if ( q->steal_idx == -1 ){
-        q->steal_idx = 0 ;
-    }
-    
 
     pthread_cond_broadcast( &notEmpty ) ; // Tell other threads that the buffer has at least one element now
-    pthread_mutex_unlock( &mtx ) ; // We give up the lock
+    pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // We give up the lock
 
 }
 
 
 task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     
-    pthread_mutex_lock( &mtx ) ; // We acquire the lock
 
-    while( q->index == 0 ){  // nb elts >= 1 ?
-        pthread_cond_wait( &notEmpty , &mtx ) ;
+    int id = q->id ;
+
+    pthread_mutex_lock( &tqueue->locks_array[ id ] ) ; // We acquire the lock
+    
+    
+
+    /*while( q->index == 0 ){  // nb elts >= 1 ?
+        pthread_cond_wait( &notEmpty , &tqueue->locks_array[ id ] ) ;
+    }*/
+    if( q->index == 0 ){  // nb elts >= 1 ?
+        pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; 
+        return NULL ;
     }
     
     // We consume an element : A free spot is now available
     task_t *t = q->task_buffer[ q->index - 1 ];
-    q->index--;
+    if ( q->index > 0 ){
+        q->index--;
+    }
+    
 
-    pthread_mutex_unlock( &mtx ) ; // Give up the lock
+    //pthread_cond_broadcast( &notFull ) ; // Tell everyone that the buffer is not full.
+    pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // Give up the lock
 
     return t;
 }
 
-task_t* steal_task( tasks_queue_t *q ) { // Consumer
-    
-    pthread_mutex_lock( &mtx ) ; // We acquire the lock
 
-    pthread_t tid = pthread_self();
-    printf("Stealing Thread ID: %lu\n", (unsigned long)tid);
+task_t* steal_task( tasks_queue_t *q ) { // Consumer
+    int id = q->id ;
+    pthread_mutex_lock( &tqueue->locks_array[ id ] ) ; // We acquire the lock
+
+    //pthread_t tid = pthread_self(); // For Debug purposes
+    //printf("Stealing Thread ID: %lu\n", (unsigned long)tid);
 
     if ( q->index == 0 || q->steal_idx == -1 ){  // nb elts >= 1 ?
+        pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // Give up the lock
         return NULL ; 
     }
     
@@ -121,7 +138,7 @@ task_t* steal_task( tasks_queue_t *q ) { // Consumer
     q->steal_idx = ( q->steal_idx + 1 ) % THREAD_COUNT ;
 
 
-    pthread_mutex_unlock( &mtx ) ; // Give up the lock
+    pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // Give up the lock
 
     return t;
 }

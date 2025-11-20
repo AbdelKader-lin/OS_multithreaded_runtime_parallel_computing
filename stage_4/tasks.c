@@ -8,11 +8,12 @@
 
 #include <pthread.h>
 
+
 system_state_t sys_state;
 
-extern tasks_queues_array_t* tqueue;
-
 __thread task_t *active_task;
+
+extern tasks_queues_array_t* tqueue;
 
 pthread_mutex_t mtx_dep_count ; // We'll use this lock to modify task_dependency_count
 pthread_mutex_t m_creation ;
@@ -49,20 +50,21 @@ void runtime_init_with_deps(void)
     runtime_init();
 }
 
-
-
 void runtime_finalize(void) {
     /*
     The idea is that we already wait for the work to finish 
     when we pass ptr_taask_waitall to the created thread
     */
 
+
     task_waitall();
 
 
     PRINT_DEBUG(1, "Terminating ... \t Total task count: %lu \n", sys_state.task_counter);
+
     
     delete_queues();
+
     
 
 }
@@ -100,7 +102,7 @@ task_t* create_task(task_routine_t f)
     return t;
 }
 
-void submit_task(task_t *t)
+void submit_task( task_t *t  )
 {
     t->status = READY;
 
@@ -120,7 +122,7 @@ void submit_task(task_t *t)
     nbTasks++ ;
     pthread_mutex_unlock( &mtx_size ) ;
     
-    dispatch_task(t);
+    dispatch_task( t );
 }
 
 
@@ -145,16 +147,24 @@ void *work_thread( void *arg ){
     while ( 1 ){ // Buffer not empty
         // Thread recupere a task
         task_t* active_tk = get_task_to_execute( id );
-        
 
         int j = 0 ;
+        int i = 0 ;
+
         while ( active_tk == NULL ){
-            printf("HI!\n");
-            active_tk = steal_task( tqueue->tab_queues[ tqueue->in + j ] ) ;
-            j++ ;
+            if ( j == id && i != 0 ){
+                break ; 
+            }
+            //printf("AVANT - STEAL !\n");
+            active_tk = steal_task( tqueue->tab_queues[ ( tqueue->in + j ) % THREAD_COUNT ] ) ;
+            j = ( j + 1 ) % THREAD_COUNT ;
+            i++ ;
+        }
+        if ( active_tk == NULL ){
+            continue ;
         }
 
-        //active_task = active_tk ;
+        active_task = active_tk ;
         task_return_value_t ret = exec_task( active_tk ); // We execute the task
         
         
@@ -170,7 +180,8 @@ void *work_thread( void *arg ){
             pthread_mutex_unlock(&mtx_dep_count);
         }
 #endif
-        }
+    }
+    
 
     return NULL ;
 }

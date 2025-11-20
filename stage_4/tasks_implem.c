@@ -37,7 +37,6 @@ void create_queues( void ) {
 
     // Iniit of the conditional variables
     pthread_cond_init( &notEmpty , NULL ) ;
-    //pthread_cond_init( &notFull , NULL ) ;
     pthread_cond_init( &finish , NULL ) ;
 
     nbTasks = 0 ;
@@ -46,10 +45,14 @@ void create_queues( void ) {
 
 void delete_queues(void)
 {
-    for ( int i = 0 ; i < THREAD_COUNT ; i++ ){
+    /*for ( int i = 0 ; i < THREAD_COUNT ; i++ ){
         free_tasks_queue( tqueue->tab_queues[ i ] );
     }
-    free( tqueue );
+    for ( int i = 0 ; i < THREAD_COUNT ; i++ ){
+        pthread_mutex_destroy( &tqueue->locks_array[ i ] ) ;
+    }
+    free( tqueue->locks_array );
+    free( tqueue );*/
     
 }    
 
@@ -63,10 +66,13 @@ void create_thread_pool(void){
     int* my_ids = malloc ( nb_threads * sizeof( int ) ) ;
 
     /* Create the threads */
+    /*
+    In this case we will "create" a distinct integer that will serve as an id for each of the threads we will create
+    */
     for ( int i = 1 ; i <= nb_threads ; i++ ){
         *( my_ids + i - 1 ) = i - 1 ; 
         pthread_create ( &tids[ i - 1 ] , NULL , work_thread , &my_ids[ i - 1 ] ) ;
-        //printf( "T%d = Created !\n", i );
+        printf( "T%d = Created !\n", i );
     }
     
     return ;
@@ -74,19 +80,23 @@ void create_thread_pool(void){
 
 
 void dispatch_task( task_t* t ) {
-    pthread_mutex_lock( &mtx_in ) ;
     enqueue_task( tqueue->tab_queues[ tqueue->in ] , t ) ;
+    pthread_mutex_lock( &mtx_in ) ;
     tqueue->in = ( tqueue->in + 1 ) % THREAD_COUNT ;
     pthread_mutex_unlock( &mtx_in ) ;
 }
 
 task_t* get_task_to_execute( int id  ) { 
-    task_t* t = dequeue_task( tqueue->tab_queues[ id ] );
+    task_t* t = dequeue_task( tqueue->tab_queues[ id ]  );
     return t ;
 }
 
 unsigned int exec_task(task_t *t)
 {
+
+    //pthread_t tid = pthread_self() % 1296103165068 ; // For Debug purposes
+    //printf("\nThread ID: %lu\n", (unsigned long)tid);
+
     active_task = t ;
     t->step++;
     t->status = RUNNING;
@@ -98,7 +108,7 @@ unsigned int exec_task(task_t *t)
     return result;
 }
 
-void terminate_task(task_t *t)
+void terminate_task(task_t *t  )
 {
     t->status = TERMINATED;
     PRINT_DEBUG(10, "Task terminated: %u\n", t->task_id);
@@ -134,7 +144,7 @@ void terminate_task(task_t *t)
     struct task *parent_task;      task that depends on this task 
 */
 
-void task_check_runnable(task_t *t)
+void task_check_runnable(task_t *t )
 {
 #ifdef WITH_DEPENDENCIES
     if(t->task_dependency_done == t->task_dependency_count){

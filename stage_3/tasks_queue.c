@@ -12,6 +12,7 @@ pthread_mutex_t mtx ;
 pthread_cond_t notEmpty ;
 
 extern pthread_cond_t finish ;
+extern tasks_queues_array_t* tqueue  ;
 
 tasks_queue_t* create_tasks_queue_stage2(void){
 
@@ -30,11 +31,16 @@ tasks_queues_array_t* create_tasks_queue(void){
     int nbth = THREAD_COUNT ;
     tasks_queue_t** array_q = (tasks_queue_t** ) malloc( nbth * sizeof( tasks_queue_t* ) );
 
+    pthread_mutex_t* locks_a = malloc( nbth * sizeof( pthread_mutex_t ) );
+
     // We create the queues
     for ( int i = 0 ; i < nbth ; i++ ){
         *( array_q + i ) = create_tasks_queue_stage2() ;
+        array_q[ i ]->id = i ;
+        pthread_mutex_init( ( locks_a + i ) , NULL ); ;
     }
     tab->tab_queues = array_q ;
+    tab->locks_array = locks_a ;
     tab->in = 0 ;
     tab->out = 0 ;
 
@@ -55,8 +61,9 @@ void free_tasks_queue(tasks_queue_t *q)
 
 void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
 
+    int id = q->id ;
 
-    pthread_mutex_lock( &mtx ) ;
+    pthread_mutex_lock( &tqueue->locks_array[ id ]  ) ;
 
     if ( q->index == q->task_buf_size ){ // Buffer is full
         // We resize the buffer : 16 new free spots.
@@ -76,17 +83,22 @@ void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
     
 
     pthread_cond_broadcast( &notEmpty ) ; // Tell other threads that the buffer has at least one element now
-    pthread_mutex_unlock( &mtx ) ; // We give up the lock
+    pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // We give up the lock
 
 }
 
 
 task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     
-    pthread_mutex_lock( &mtx ) ; // We acquire the lock
+
+    int id = q->id ;
+
+    pthread_mutex_lock( &tqueue->locks_array[ id ] ) ; // We acquire the lock
+    
+    
 
     while( q->index == 0 ){  // nb elts >= 1 ?
-        pthread_cond_wait( &notEmpty , &mtx ) ;
+        pthread_cond_wait( &notEmpty , &tqueue->locks_array[ id ] ) ;
     }
     
     // We consume an element : A free spot is now available
@@ -94,7 +106,7 @@ task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     q->index--;
 
     //pthread_cond_broadcast( &notFull ) ; // Tell everyone that the buffer is not full.
-    pthread_mutex_unlock( &mtx ) ; // Give up the lock
+    pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // Give up the lock
 
     return t;
 }

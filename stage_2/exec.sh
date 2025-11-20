@@ -29,7 +29,7 @@ echo "Testing with test_dependencies_outputs.c :"
 ./tests/test_dependencies_outputs.run
 echo
 echo "----------------------------------------"
-echo 
+echo
 
 
 echo "Testing with test_dependencies.c :"
@@ -51,7 +51,7 @@ do
 done
 echo
 echo "----------------------------------------"
-echo 
+echo
 
 
 make $expr clean

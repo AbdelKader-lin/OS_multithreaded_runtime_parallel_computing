@@ -13,7 +13,7 @@ void runtime_init_with_deps(void);
 void runtime_finalize(void);
 
 task_t* create_task(task_routine_t f);
-void submit_task(task_t *t);
+void submit_task(task_t *t );
 void free_task(task_t* t);
 
 void task_waitall(void);
