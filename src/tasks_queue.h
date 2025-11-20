@@ -4,6 +4,10 @@
 #include <pthread.h>
 #include "tasks.h"
 
+extern pthread_mutex_t mtx;
+extern pthread_cond_t notEmpty;
+extern pthread_cond_t notFull;
+
 
 typedef struct tasks_queue {
     task_t **task_buffer;   // array of task pointers

@@ -13,9 +13,9 @@ extern tasks_queue_t *tqueue;
 system_state_t sys_state;
 __thread task_t *active_task;
 
-static int pending_tasks = 0;
+int pending_tasks = 0;
 
-static pthread_mutex_t pending_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pending_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t finish = PTHREAD_COND_INITIALIZER;
 
 extern pthread_cond_t notEmpty ;
@@ -82,6 +82,7 @@ task_t* create_task(task_routine_t f)
 #ifdef WITH_DEPENDENCIES
     t->tstate.output_from_dependencies_list = NULL;
     t->task_dependency_count = 0;
+    t->task_dependency_done = 0;
     t->parent_task = NULL;
 #endif
     
@@ -126,9 +127,8 @@ void task_waitall(void) {
 
 void *work_thread(void *arg)
 {
-    while (1)
-    {
-        task_t *active_tk = get_task_to_execute();
+    while (1) {   
+        task_t *active_tk = dequeue_task(tqueue);
 
         task_return_value_t ret = exec_task(active_tk);
 
@@ -137,17 +137,14 @@ void *work_thread(void *arg)
         }
 #ifdef WITH_DEPENDENCIES
         else {
+            
             active_tk->status = WAITING;
         }
 #endif
-
-        pthread_mutex_lock(&pending_mutex);
-        pending_tasks--;
-        if (pending_tasks == 0) {
-            pthread_cond_broadcast(&finish);
-        }
-        pthread_mutex_unlock(&pending_mutex);
     }
 
     return NULL;  
 }
+
+
+

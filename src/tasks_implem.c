@@ -6,6 +6,14 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#include "tasks.h"
+
+
+extern __thread task_t *active_task;
+
+extern int pending_tasks;
+extern pthread_mutex_t pending_mutex;
+extern pthread_cond_t finish;
 
 tasks_queue_t *tqueue= NULL;
 
@@ -52,29 +60,40 @@ unsigned int exec_task(task_t *t)
     t->step++;
     t->status = RUNNING;
 
-    PRINT_DEBUG(10, "Execution of task %u (step %u)\n", t->task_id, t->step);
-    
+    PRINT_DEBUG(10, "Execution of task %u (step %u)\n",
+                t->task_id, t->step);
+
+    task_t *previous = active_task;
+    active_task = t;
+
     unsigned int result = t->fct(t, t->step);
-    
+
+    active_task = previous;
+
     return result;
 }
+
 
 void terminate_task(task_t *t)
 {
     t->status = TERMINATED;
-    
-    PRINT_DEBUG(10, "Task terminated: %u\n", t->task_id);
 
 #ifdef WITH_DEPENDENCIES
-    if(t->parent_task != NULL){
-        task_t *waiting_task = t->parent_task;
-        waiting_task->task_dependency_done++;
-        
-        task_check_runnable(waiting_task);
+    if (t->parent_task != NULL) {
+        task_t *p = t->parent_task;
+        p->task_dependency_done++;
+
+        task_check_runnable(p);
     }
 #endif
 
+    pthread_mutex_lock(&pending_mutex);
+    pending_tasks--;
+    if (pending_tasks == 0)
+        pthread_cond_broadcast(&finish);
+    pthread_mutex_unlock(&pending_mutex);
 }
+
 
 void task_check_runnable(task_t *t)
 {
