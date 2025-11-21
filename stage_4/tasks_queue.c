@@ -62,7 +62,6 @@ void free_tasks_queue(tasks_queue_t *q)
 
 
 void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
-
     int id = q->id ;
 
     pthread_mutex_lock( &tqueue->locks_array[ id ]  ) ;
@@ -76,32 +75,21 @@ void enqueue_task( tasks_queue_t *q , task_t *t ) { // Producer
         q->task_buffer = new_buffer ;
 
     }
-    
-    
-    
     // We add the task to the buffer
     q->task_buffer[ q->index ] = t;
     q->index++;
     
-
     pthread_cond_broadcast( &notEmpty ) ; // Tell other threads that the buffer has at least one element now
     pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // We give up the lock
-
 }
 
 
 task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     
-
     int id = q->id ;
 
     pthread_mutex_lock( &tqueue->locks_array[ id ] ) ; // We acquire the lock
     
-    
-
-    /*while( q->index == 0 ){  // nb elts >= 1 ?
-        pthread_cond_wait( &notEmpty , &tqueue->locks_array[ id ] ) ;
-    }*/
     if( q->index == 0 ){  // nb elts >= 1 ?
         pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; 
         return NULL ;
@@ -112,9 +100,7 @@ task_t* dequeue_task( tasks_queue_t *q ) { // Consumer
     if ( q->index > 0 ){
         q->index--;
     }
-    
 
-    //pthread_cond_broadcast( &notFull ) ; // Tell everyone that the buffer is not full.
     pthread_mutex_unlock( &tqueue->locks_array[ id ] ) ; // Give up the lock
 
     return t;

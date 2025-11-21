@@ -43,6 +43,10 @@ void create_queues( void ) {
 
 }
 
+// We comment this function temporarly for debugging purposes
+/*
+A remarque about this function in the report.
+*/
 void delete_queues(void)
 {
     /*for ( int i = 0 ; i < THREAD_COUNT ; i++ ){
@@ -136,13 +140,6 @@ void terminate_task(task_t *t  )
 
 
 }
-/*
-    unsigned int task_dependency_count;  number of tasks this task depends on 
-    
-    unsigned int task_dependency_done;    number of solved dependencies 
-    
-    struct task *parent_task;      task that depends on this task 
-*/
 
 void task_check_runnable(task_t *t )
 {

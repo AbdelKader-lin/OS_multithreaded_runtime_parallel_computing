@@ -150,7 +150,7 @@ void *work_thread( void *arg ){
 
         int j = 0 ;
         int i = 0 ;
-
+        // Explained in the report
         while ( active_tk == NULL ){
             if ( j == id && i != 0 ){
                 break ; 
